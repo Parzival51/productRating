@@ -18,8 +18,6 @@ kobweb {
             description.set("Powered by Kobweb")
         }
 
-        // Only legacy sites need this set. Sites built after 0.16.0 should default to DISALLOW.
-        // See https://github.com/varabyte/kobweb#legacy-routes for more information.
         legacyRouteRedirectStrategy.set(LegacyRouteRedirectStrategy.DISALLOW)
     }
 }
@@ -28,21 +26,45 @@ kotlin {
     configAsKobwebApplication("productrating", includeServer = true)
 
     sourceSets {
-        commonMain.dependencies {
-            implementation(compose.runtime)
-            implementation(libs.kotlinx.serialization.json)
+        val commonMain by getting {
+            dependencies {
+                implementation(compose.runtime)
+                implementation(libs.kotlinx.serialization.json)
+                implementation(libs.ktor.client.core)
+
+
+
+
+            }
         }
 
-        jsMain.dependencies {
-            implementation(compose.html.core)
-            implementation(libs.kobweb.core)
-            implementation(libs.kobweb.silk)
-            implementation(libs.silk.icons.fa)
+        val jsMain by getting {
+            dependencies {
+                implementation(compose.html.core)
+                implementation(libs.kobweb.core)
+                implementation(libs.kobweb.silk)
+                implementation(libs.silk.icons.fa)
+                implementation("org.jetbrains.kotlinx:kotlinx-html-js:0.7.3")
 
+            }
         }
-        jvmMain.dependencies {
-            compileOnly(libs.kobweb.api) // Provided by Kobweb backend at runtime
-            implementation(libs.mongodb.kotlin.driver)
+
+        val jvmMain by getting {
+            dependencies {
+                compileOnly(libs.kobweb.api)
+                implementation(libs.mongodb.kotlin.driver)
+                implementation(libs.ktor.server.core)
+                implementation(libs.ktor.server.swagger)
+                implementation(libs.ktor.server.content.negotiation)
+                implementation(libs.ktor.serialization.gson)
+                implementation(libs.ktor.server.tomcat)
+                implementation("at.favre.lib:bcrypt:0.9.0")
+
+
+
+
+
+            }
         }
     }
 }

@@ -3,15 +3,17 @@ package com.example.productrating.api.model
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
-import kotlinx.serialization.modules.subclass
 
 val json = Json {
     serializersModule = SerializersModule {
         polymorphic(ApiListResponse::class) {
-            subclass(ApiListResponse.Loading::class)
-            subclass(ApiListResponse.Success::class)
-            subclass(ApiListResponse.Error::class)
+            subclass(ApiListResponse.Loading::class, ApiListResponse.Loading.serializer())
+            subclass(ApiListResponse.SuccessProducts::class, ApiListResponse.SuccessProducts.serializer())
+            subclass(ApiListResponse.SuccessUser::class, ApiListResponse.SuccessUser.serializer())
+            subclass(ApiListResponse.Error::class, ApiListResponse.Error.serializer())
         }
     }
-    classDiscriminator = "type" // Polymorphic discriminator field name
+    ignoreUnknownKeys = true
+    coerceInputValues = true
 }
+

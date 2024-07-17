@@ -1,10 +1,13 @@
 package com.example.productrating.pages
 
 import androidx.compose.runtime.*
+import com.example.productrating.api.model.ApiListResponse
 import com.example.productrating.api.model.Product
 import com.example.productrating.components.HeaderLayout
 import com.example.productrating.data.addProduct
+import com.example.productrating.data.getAllProducts
 import com.example.productrating.navigation.Screen
+import com.example.productrating.userState.rememberUserState
 import com.varabyte.kobweb.compose.css.Cursor
 import com.varabyte.kobweb.compose.css.FontWeight
 import com.varabyte.kobweb.compose.foundation.layout.*
@@ -13,21 +16,62 @@ import com.varabyte.kobweb.compose.ui.Modifier
 import com.varabyte.kobweb.compose.ui.graphics.Color
 import com.varabyte.kobweb.compose.ui.graphics.Colors
 import com.varabyte.kobweb.compose.ui.modifiers.*
+import com.varabyte.kobweb.compose.ui.styleModifier
 import com.varabyte.kobweb.compose.ui.toAttrs
 import com.varabyte.kobweb.core.Page
 import com.varabyte.kobweb.core.rememberPageContext
-import com.varabyte.kobweb.silk.components.graphics.Image
 import com.varabyte.kobweb.silk.components.text.SpanText
+import com.varabyte.kobweb.silk.init.InitSilk
+import com.varabyte.kobweb.silk.init.InitSilkContext
+import com.varabyte.kobweb.silk.style.selectors.hover
 import kotlinx.browser.window
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.web.attributes.*
 import org.jetbrains.compose.web.css.*
 import org.jetbrains.compose.web.dom.*
 
-@Page
+
+
+@InitSilk
+fun initStyles(ctx: InitSilkContext) {
+    ctx.stylesheet.apply {
+        cssLayers.add("initStyles")
+        layer("initStyles") {
+            registerStyle(".init-style") {
+                base {
+                    Modifier
+                        .backgroundColor(rgb(30, 136, 229))
+                        .borderRadius(75.px)
+                        .padding(16.px)
+                        .cursor(Cursor.Pointer)
+                }
+                hover {
+                    Modifier.backgroundColor(rgb(21, 101, 192))
+                }
+            }
+            registerStyle(".category-box") {
+                base {
+                    Modifier
+                        .backgroundColor(Color.rgb(255, 255, 255))
+                        .borderRadius(16.px)
+                        .padding(16.px)
+                        .cursor(Cursor.Pointer)
+                }
+                hover {
+                    Modifier.styleModifier {
+                        property("box-shadow", "0px 4px 8px rgba(0, 0, 0, 0.2)")
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
+@Page("/")
 @Composable
 fun HomePage() {
-
     val scope = rememberCoroutineScope()
     val context = rememberPageContext()
     var isFormVisible by remember { mutableStateOf(false) }
@@ -35,14 +79,30 @@ fun HomePage() {
     var price by remember { mutableStateOf(0.0) }
     var category by remember { mutableStateOf("") }
     var image by remember { mutableStateOf("") }
+    val userState = rememberUserState()
 
-    if (isFormVisible) {
-        LaunchedEffect(Unit) {
-            window.scrollTo(0.0, window.innerHeight.toDouble())
+    var categories by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+
+    LaunchedEffect(Unit) {
+        scope.launch {
+            getAllProducts(
+                onSuccess = { response ->
+                    if (response is ApiListResponse.SuccessProducts) {
+                        categories = response.data
+                            .groupBy { it.category }
+                            .mapValues { "" } // Resimleri şimdilik boş bırakıyoruz
+                    } else if (response is ApiListResponse.Error) {
+                        println("Error fetching products: ${response.message}")
+                    }
+                },
+                onError = { error ->
+                    println("Error fetching products: ${error.message}")
+                }
+            )
         }
     }
 
-    HeaderLayout(context = context) {
+    HeaderLayout(context = context, userState = userState) {
         Column(
             modifier = Modifier.fillMaxSize().backgroundColor(Color.rgb(224, 224, 224))
         ) {
@@ -55,8 +115,8 @@ fun HomePage() {
                 SpanText(
                     text = "Ürünleri Değerlendir, Yorumları Oku, En İyi Seçimi Yap!",
                     modifier = Modifier
-                        .fontSize(50.px)
-                        .margin(top = 75.px)
+                        .fontSize(40.px)
+                        .margin(top = 35.px)
                         .color(Colors.Black)
                         .fontFamily("Montserrat")
                         .fontWeight(FontWeight.Bold)
@@ -71,40 +131,42 @@ fun HomePage() {
                 ) {
                     Button(
                         attrs = Modifier
+                            .classNames("init-style")
                             .height(75.px)
                             .width(300.px)
                             .onClick {
-                                isFormVisible = true
+                                if (userState.username.isNullOrEmpty()) {
+                                    context.router.navigateTo(Screen.LoginPage.route)
+                                } else {
+                                    isFormVisible = true
+                                }
                             }
-                            .backgroundColor(Color.rgb(245, 245, 245))
-                            .borderRadius(8.px)
-                            .padding(16.px)
-                            .cursor(Cursor.Pointer)
                             .toAttrs()
                     ) {
                         SpanText(
                             text = "Ürün Ekle",
-                            modifier = Modifier.color(Colors.Black).fontSize(16.px)
+                            modifier = Modifier.color(Colors.White).fontSize(16.px)
                         )
                     }
 
                     Button(
                         attrs = Modifier
+                            .classNames("init-style")
                             .height(75.px)
                             .width(300.px)
                             .margin(left = 50.px)
                             .onClick {
-                                isFormVisible = !isFormVisible
+                                if (userState.username.isNullOrEmpty()) {
+                                    context.router.navigateTo(Screen.LoginPage.route)
+                                } else {
+                                    context.router.navigateTo(Screen.ProductUpdatePage.route)
+                                }
                             }
-                            .backgroundColor(Color.rgb(245, 245, 245))
-                            .borderRadius(8.px)
-                            .padding(16.px)
-                            .cursor(Cursor.Pointer)
                             .toAttrs()
                     ) {
                         SpanText(
-                            text = "Ürün Yıldızla",
-                            modifier = Modifier.color(Colors.Black).fontSize(16.px)
+                            text = "Ürün Güncelle",
+                            modifier = Modifier.color(Colors.White).fontSize(16.px)
                         )
                     }
                 }
@@ -117,62 +179,39 @@ fun HomePage() {
                     .padding(24.px)
                     .backgroundColor(Color.rgb(224, 224, 224))
             ) {
-                val categories = listOf(
-                    Pair("url_to_image1.jpg", "Kategori 1"),
-                    Pair("url_to_image2.jpg", "Kategori 2"),
-                    Pair("url_to_image3.jpg", "Kategori 3"),
-                    Pair("url_to_image4.jpg", "Kategori 4"),
-                    Pair("url_to_image5.jpg", "Kategori 5"),
-                    Pair("url_to_image6.jpg", "Kategori 6"),
-                    Pair("url_to_image7.jpg", "Kategori 7"),
-                    Pair("url_to_image8.jpg", "Kategori 8"),
-                    Pair("url_to_image9.jpg", "Kategori 9"),
-                    Pair("url_to_image10.jpg", "Kategori 10")
-                )
+                val categoryList = categories.keys.toList()
 
-                for (i in categories.indices step 5) {
+                for (i in categoryList.indices step 5) {
                     Row(
-                        modifier = Modifier.fillMaxWidth().margin(bottom = 16.px),
-                        horizontalArrangement = Arrangement.SpaceAround
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(leftRight = 64.px) // Ürünleri değerlendir kısmıyla hizalamak için padding ekledik
+                            .margin(bottom = 16.px),
+                        horizontalArrangement = Arrangement.Start // Soldan başlamak için düzenlendi
                     ) {
                         for (j in 0 until 5) {
-                            if (i + j < categories.size) {
-                                val (imageUrl, categoryName) = categories[i + j]
+                            if (i + j < categoryList.size) {
+                                val categoryName = categoryList[i + j]
                                 Box(
                                     modifier = Modifier
+                                        .classNames("category-box")
                                         .size(200.px)
-                                        .backgroundColor(Color.rgb(245, 245, 245))
-                                        .borderRadius(16.px)
-                                        .padding(16.px)
+                                        .margin(right = 16.px) // Aralarına boşluk eklemek için margin kullanıldı
                                         .onClick {
-                                            println("$categoryName kategorisine tıklandı")
-                                            when (categoryName) {
-                                                "Kategori 1" -> {
-                                                    context.router.navigateTo(Screen.ColaPage.route)
-                                                    println("Kategori 1 için özel işlem yapıldı")
-                                                }
-                                                "Kategori 2" -> {
-                                                    println("Kategori 2 için özel işlem yapıldı")
-                                                }
-                                                "Kategori 3" -> {
-                                                    println("Kategori 3 için özel işlem yapıldı")
-                                                }
-                                                else -> {
-                                                    println("Başka bir kategoriye tıklandı")
-                                                }
-                                            }
+                                            context.router.navigateTo(Screen.CategoryPage(categoryName).route)
                                         }
-                                        .cursor(Cursor.Pointer)
                                 ) {
                                     Column(
                                         modifier = Modifier.fillMaxSize(),
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                         verticalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Image(
-                                            src = imageUrl,
-                                            alt = "$categoryName resmi",
-                                            modifier = Modifier.size(150.px).borderRadius(16.px)
+                                        // Şimdilik resim yok
+                                        Box(
+                                            modifier = Modifier
+                                                .size(150.px)
+                                                .borderRadius(16.px)
+                                                .backgroundColor(Color.rgb(200, 200, 200))
                                         )
                                         SpanText(
                                             text = categoryName,
@@ -180,6 +219,9 @@ fun HomePage() {
                                         )
                                     }
                                 }
+                            } else {
+                                // Boş alanları doldurmak için boş kutucuklar eklenir
+                                Box(modifier = Modifier.size(200.px).margin(right = 16.px))
                             }
                         }
                     }
@@ -190,12 +232,12 @@ fun HomePage() {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .backgroundColor(Color.rgba(0, 0, 0, 0.5f)) // Arka planı yarı saydam yapar
+                        .backgroundColor(Color.rgba(0, 0, 0, 0.5f))
                         .display(DisplayStyle.Flex)
                         .justifyContent(JustifyContent.Center)
                         .alignItems(AlignItems.Center)
-                        .position(Position.Fixed) // Ekranın ortasında konumlandırır
-                        .top(0.px)
+                        .position(Position.Absolute) // Fixed yerine Absolute yapıldı
+                        .top(window.pageYOffset.px) // Mevcut scroll konumuna göre yerleştirildi
                         .left(0.px)
                 ) {
                     Box(
@@ -203,23 +245,28 @@ fun HomePage() {
                             .width(400.px)
                             .backgroundColor(Colors.White)
                             .borderRadius(16.px)
-                            .padding(16.px)
-                            .onClick { } // Tıklamaların modalı kapatmaması için
+                            .padding(24.px)
+                            .styleModifier {
+                                property("box-shadow", "0px 4px 8px rgba(0, 0, 0, 0.2)")
+                            }
+                            .onClick { }
                     ) {
-                        Column {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.px)
+                        ) {
                             // Ürün Adı
                             Input(
                                 type = InputType.Text,
                                 attrs = Modifier
                                     .width(320.px)
                                     .height(50.px)
-                                    .color(Colors.Navy)
-                                    .backgroundColor(Colors.White)
+                                    .color(Colors.Black)
+                                    .backgroundColor(Color.rgb(245, 245, 245))
                                     .padding(12.px)
-                                    .fontSize(18.px)
+                                    .fontSize(16.px)
                                     .borderRadius(8.px)
-                                    .margin(8.px)
-                                    .border(1.px, LineStyle.Solid, Colors.Navy)
+                                    .border(1.px, LineStyle.Solid, Colors.Gray)
                                     .toAttrs {
                                         attr("placeholder", "Product Name")
                                         onInput {
@@ -234,13 +281,12 @@ fun HomePage() {
                                 attrs = Modifier
                                     .width(320.px)
                                     .height(50.px)
-                                    .color(Colors.Navy)
-                                    .backgroundColor(Colors.White)
+                                    .color(Colors.Black)
+                                    .backgroundColor(Color.rgb(245, 245, 245))
                                     .padding(12.px)
-                                    .fontSize(18.px)
+                                    .fontSize(16.px)
                                     .borderRadius(8.px)
-                                    .margin(8.px)
-                                    .border(1.px, LineStyle.Solid, Colors.Navy)
+                                    .border(1.px, LineStyle.Solid, Colors.Gray)
                                     .toAttrs {
                                         attr("placeholder", "Price")
                                         onInput {
@@ -249,21 +295,18 @@ fun HomePage() {
                                     }
                             )
 
-
-
                             // Kategori
                             Input(
                                 type = InputType.Text,
                                 attrs = Modifier
                                     .width(320.px)
                                     .height(50.px)
-                                    .color(Colors.Navy)
-                                    .backgroundColor(Colors.White)
+                                    .color(Colors.Black)
+                                    .backgroundColor(Color.rgb(245, 245, 245))
                                     .padding(12.px)
-                                    .fontSize(18.px)
+                                    .fontSize(16.px)
                                     .borderRadius(8.px)
-                                    .margin(8.px)
-                                    .border(1.px, LineStyle.Solid, Colors.Navy)
+                                    .border(1.px, LineStyle.Solid, Colors.Gray)
                                     .toAttrs {
                                         attr("placeholder", "Category")
                                         onInput {
@@ -278,13 +321,12 @@ fun HomePage() {
                                 attrs = Modifier
                                     .width(320.px)
                                     .height(50.px)
-                                    .color(Colors.Navy)
-                                    .backgroundColor(Colors.White)
+                                    .color(Colors.Black)
+                                    .backgroundColor(Color.rgb(245, 245, 245))
                                     .padding(12.px)
-                                    .fontSize(18.px)
+                                    .fontSize(16.px)
                                     .borderRadius(8.px)
-                                    .margin(8.px)
-                                    .border(1.px, LineStyle.Solid, Colors.Navy)
+                                    .border(1.px, LineStyle.Solid, Colors.Gray)
                                     .toAttrs {
                                         attr("placeholder", "Image URL")
                                         onInput {
@@ -292,44 +334,42 @@ fun HomePage() {
                                         }
                                     }
                             )
+
                             Row(
                                 modifier = Modifier
                                     .align(Alignment.CenterHorizontally)
                                     .margin(top = 16.px),
-                                horizontalArrangement = Arrangement.spacedBy(32.px) // Butonlar arasına 32px boşluk ekler
+                                horizontalArrangement = Arrangement.spacedBy(16.px)
                             ) {
                                 Button(
                                     attrs = {
-                                            onClick {
-                                                scope.launch {
-                                                    addProduct(
-                                                        Product(
-                                                            id = "",
-                                                            name = name,
-                                                            price = price.toLong(),
-                                                            category = category,
-                                                            imageUrl = image
-
-                                                        )
+                                        onClick {
+                                            scope.launch {
+                                                addProduct(
+                                                    Product(
+                                                        id = "",
+                                                        name = name,
+                                                        price = price.toLong(),
+                                                        category = category,
+                                                        imageUrl = image
                                                     )
-                                                    isFormVisible = false
-                                                }
+                                                )
+                                                isFormVisible = false
                                             }
+                                        }
                                         style {
                                             backgroundColor(Color.rgb(0, 122, 255))
-                                            borderRadius(8.px)
+                                            borderRadius(25.px)
                                             padding(16.px)
                                             cursor("pointer")
                                             color(Colors.White)
-                                            width(150.px) // Buton genişliği ayarlandı
+                                            width(150.px)
+                                            property("box-shadow", "0px 4px 8px rgba(0, 0, 0, 0.1)")
                                         }
-
                                     }
-                                )
-                                {
+                                ) {
                                     SpanText(text = "Ekle", modifier = Modifier.fontSize(16.px))
                                 }
-
 
                                 Button(
                                     attrs = {
@@ -338,25 +378,27 @@ fun HomePage() {
                                         }
                                         style {
                                             backgroundColor(Color.rgb(255, 0, 0))
-                                            borderRadius(8.px)
+                                            borderRadius(25.px)
                                             padding(16.px)
                                             cursor("pointer")
                                             color(Colors.White)
-                                            width(150.px) // Buton genişliği ayarlandı
+                                            width(150.px)
+                                            property("box-shadow", "0px 4px 8px rgba(0, 0, 0, 0.1)")
                                         }
                                     }
                                 ) {
                                     SpanText(text = "İptal", modifier = Modifier.fontSize(16.px))
                                 }
                             }
-                            }
                         }
-
-                        }
-
                     }
                 }
             }
         }
+    }
+}
+
+
+
 
 
